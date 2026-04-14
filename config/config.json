@@ -1,0 +1,6 @@
+{
+  "trading_pairs": ["btcusdt", "ethusdt"],
+  "aggregation_window_ms": 1000,
+  "serialization_interval_ms": 5000,
+  "output_file": "market_data.log"
+}

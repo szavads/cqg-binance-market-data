@@ -1,3 +1,27 @@
+# Build
+build/
+bin/
+lib/
+out/
+cmake-build-*/
+*.exe
+*.dll
+*.so
+
+# Conan
+.conan/
+conan.lock
+
+# IDE
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
 # Prerequisites
 *.d
 
@@ -32,8 +56,12 @@
 *.a
 *.lib
 
-# Executables
+# Executables & Binaries
 *.exe
+*.dll
+*.so
+*.a
+*.lib
 *.out
 *.app
 
