@@ -1,11 +1,11 @@
 
 #include <iostream>
 
-using namespace std;
+#include "app.h"
 
 int main()
 {
-	cout << "Hello cqg_binance_service..." << endl;
+	std::cout << greeting_message() << std::endl;
 	return 0;
 }
 

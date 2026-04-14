@@ -4,6 +4,12 @@
 cmake_minimum_required (VERSION 3.10)
 project(cqg_binance_service LANGUAGES CXX)
 
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+option(BUILD_TESTS "Build unit tests" ON)
+
 # Enable Hot Reload for MSVC compilers if supported.
 if (POLICY CMP0141)
   cmake_policy(SET CMP0141 NEW)
@@ -11,19 +17,19 @@ if (POLICY CMP0141)
 endif()
 
 # Main executable
-add_executable(binance_service
-    src/main.cpp
+add_library(binance_service_core
+  src/app.cpp
 )
 
-target_include_directories(binance_service PRIVATE src)
+target_include_directories(binance_service_core PUBLIC src)
 
-#if (CMAKE_VERSION VERSION_GREATER 3.12)
-#  set_property(TARGET binance_service PROPERTY CXX_STANDARD 20)
-#endif()
+add_executable(binance_service
+  src/main.cpp
+)
 
-# TODO: Add tests and install targets when it's time to do that
-# Tests
-#option(BUILD_TESTS "Build unit tests" ON)
-#if(BUILD_TESTS)
-#    add_subdirectory(tests)
-#endif()
+target_link_libraries(binance_service PRIVATE binance_service_core)
+
+if(BUILD_TESTS)
+  enable_testing()
+  add_subdirectory(tests)
+endif()

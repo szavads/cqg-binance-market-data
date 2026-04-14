@@ -1,0 +1,7 @@
+add_executable(binance_service_tests
+	main_test.cpp
+)
+
+target_link_libraries(binance_service_tests PRIVATE binance_service_core)
+
+add_test(NAME binance_service_tests COMMAND binance_service_tests)
