@@ -2,8 +2,11 @@ find_package(GTest REQUIRED)
 
 add_executable(binance_service_tests
     ConfigTests.cpp
-	../src/config/Config.cpp
-	main_test.cpp
+    FileWriterTests.cpp
+    ../src/config/Config.cpp
+    ../src/storage/FileWriter.cpp
+    ../src/core/Aggregator.cpp
+    main_test.cpp
 )
 
 target_link_libraries(binance_service_tests PRIVATE
