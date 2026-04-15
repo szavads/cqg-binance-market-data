@@ -1,0 +1,37 @@
+BasedOnStyle: Google
+IndentWidth: 4
+ColumnLimit: 100
+
+# Braces
+BreakBeforeBraces: Allman
+BraceWrapping:
+  AfterClass: true
+  AfterFunction: true
+  AfterNamespace: false
+  BeforeElse: true
+
+# Pointers & references: int& x, not int &x
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+# Includes
+SortIncludes: CaseInsensitive
+IncludeBlocks: Regroup
+IncludeCategories:
+  # Own headers first
+  - Regex: '^"'
+    Priority: 1
+  # Third-party
+  - Regex: '^<(boost|websocketpp|nlohmann|spdlog)/'
+    Priority: 2
+  # Standard library
+  - Regex: '^<'
+    Priority: 3
+
+# Lambdas
+LambdaBodyIndentation: Signature
+
+# Misc
+SpaceBeforeParens: ControlStatements
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: Never
