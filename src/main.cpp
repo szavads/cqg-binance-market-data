@@ -36,14 +36,14 @@ int main()
     int64_t serializationIntervalMs = config.serialization_interval_ms;
     std::vector<std::string> pairs = config.trading_pairs;
 
-	boost::asio::io_context io_context;
-	cqg::Aggregator aggregator(windowMs);
+    boost::asio::io_context io_context;
+    cqg::Aggregator aggregator(windowMs);
     cqg::WebSocketClient client(io_context);
-    
-	// FileWriter для записи в файл
+
+    // FileWriter для записи в файл
     cqg::FileWriter writer(config.output_file, serializationIntervalMs);
-    
- 	// Связываем Aggregator → FileWriter
+
+    // Связываем Aggregator → FileWriter
     aggregator.setAggregationCallback([&writer](const std::map<std::string, cqg::TradeStats>& stats) {
         writer.write(stats);
     });
@@ -56,8 +56,7 @@ int main()
                                            int64_t exchangeTime) {
         aggregator.addTrade(symbol, price, quantity, isBuyerMaker, exchangeTime);
     });
-    
-	
+
     // Подписка на торговые пары
     std::vector<std::string> streams;
     for (const auto& pair : pairs) {
@@ -68,7 +67,7 @@ int main()
     // Запуск агрегатора
     aggregator.start();
 
-	// Запуск WebSocket в отдельном потоке
+    // Запуск WebSocket в отдельном потоке
     std::thread wsThread([&client]() {
         client.start();
     });

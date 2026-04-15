@@ -1,5 +1,4 @@
 #include "Aggregator.hpp"
-#include <iostream>
 #include <thread>
 #include <chrono>
 
