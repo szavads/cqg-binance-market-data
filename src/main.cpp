@@ -17,6 +17,9 @@ void signalHandler(int signum) {
 
 int main()
 {
+    signal(SIGINT,  signalHandler);
+    signal(SIGTERM, signalHandler);
+
 	// Загрузка конфигурации (из config.json)
 	cqg::Config config = cqg::loadConfig("config/config.json");
     std::cout << "[Config] Loaded: Window=" << config.aggregation_window_ms 

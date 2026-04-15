@@ -14,7 +14,7 @@ WebSocketClient::WebSocketClient(boost::asio::io_context& io_context)
     // Инициализация WebSocket клиента
     wsClient_.init_asio(&io_context);
     
-    // 🔧 Настройка TLS для wss:// соединений
+    // Настройка TLS для wss:// соединений
     wsClient_.set_tls_init_handler([](websocketpp::connection_hdl) {
         auto ctx = std::make_shared<boost::asio::ssl::context>(
             boost::asio::ssl::context::sslv23);
