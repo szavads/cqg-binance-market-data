@@ -44,6 +44,8 @@ target_include_directories(binance_service_core PUBLIC src)
 add_executable(binance_service
   src/main.cpp
   src/network/WebSocketClient.cpp
+  src/core/Aggregator.cpp
+  src/storage/FileWriter.cpp 
 )
 
 target_link_libraries(binance_service PRIVATE
