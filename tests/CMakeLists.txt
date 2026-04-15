@@ -3,6 +3,7 @@ find_package(GTest REQUIRED)
 add_executable(binance_service_tests
     ConfigTests.cpp
     FileWriterTests.cpp
+    AggregatorTests.cpp
     ../src/config/Config.cpp
     ../src/storage/FileWriter.cpp
     ../src/core/Aggregator.cpp
