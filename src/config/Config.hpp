@@ -13,14 +13,14 @@ struct Config {
     int64_t serialization_interval_ms;
     std::string output_file;
 
-    // Конструктор с дефолтными значениями (на случай ошибок)
+    // Default values used when fields are absent in the config file
     Config() 
         : aggregation_window_ms(1000)
         , serialization_interval_ms(5000)
         , output_file("market_data.log") {}
 };
 
-// Функция загрузки (может бросать исключения)
+// Load and validate config from a JSON file; throws std::runtime_error on failure
 Config loadConfig(const std::string& path);
 
 } // namespace cqg

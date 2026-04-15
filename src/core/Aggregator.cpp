@@ -21,20 +21,20 @@ void Aggregator::addTrade(const std::string& symbol,
                           double quantity, 
                           bool isBuyerMaker,
                           int64_t exchangeTimeMs) {
-    // Thread-safe добавление данных
+    // Thread-safe stats update
     std::lock_guard<std::mutex> lock(mutex_);
-    
-    // Определяем начало окна для этого трейда
+
+    // Derive window start from exchange timestamp
     int64_t windowStart = (exchangeTimeMs / windowMs_) * windowMs_;
-    
-    // Если это новый символ или новое окно — сбрасываем
+
+    // New symbol or new window — reset stats
     auto it = lastWindowStart_.find(symbol);
     if (it == lastWindowStart_.end() || it->second != windowStart) {
         stats_[symbol].reset(windowStart);
         lastWindowStart_[symbol] = windowStart;
     }
     
-    // Обновляем статистику
+    // Update stats
     auto& stats = stats_[symbol];
     stats.symbol = symbol;
     stats.tradeCount++;
@@ -80,7 +80,7 @@ void Aggregator::processWindows() {
     {
         std::lock_guard<std::mutex> lock(mutex_);
         
-        // Фильтруем пары с данными и сразу сбрасываем — всё под одним lock
+        // Copy symbols with data and reset immediately, doing all under a single lock
         for (auto& [symbol, stats] : stats_) {
             if (stats.hasData()) {
                 filtered[symbol] = stats;
@@ -89,7 +89,7 @@ void Aggregator::processWindows() {
         }
     }
     
-    // Вызываем callback вне lock — он может быть долгим (I/O в FileWriter)
+    // Invoke callback outside the lock, note, this may block on I/O (FileWriter)
     if (!filtered.empty() && callback_) {
         callback_(filtered);
     }

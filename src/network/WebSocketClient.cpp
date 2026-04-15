@@ -11,10 +11,10 @@ WebSocketClient::WebSocketClient(boost::asio::io_context& io_context)
     : isRunning_(false)
     , reconnectAttempts_(0) {
     
-    // Инициализация WebSocket клиента
+    // Attach websocketpp to the shared io_context
     wsClient_.init_asio(&io_context);
-    
-    // Настройка TLS для wss:// соединений
+
+    // TLS context for wss:// connections
     wsClient_.set_tls_init_handler([](websocketpp::connection_hdl) {
         auto ctx = std::make_shared<boost::asio::ssl::context>(
             boost::asio::ssl::context::sslv23);
@@ -24,11 +24,11 @@ WebSocketClient::WebSocketClient(boost::asio::io_context& io_context)
                             boost::asio::ssl::context::no_sslv2 |
                             boost::asio::ssl::context::no_sslv3);
 #ifdef _WIN32
-            // Windows: OpenSSL (Conan) не интегрирован с системным хранилищем сертификатов,
-            // verify_peer без явных CA будет падать. Только для dev-среды используем verify_none.
+            // Windows: Conan OpenSSL is not integrated with the system certificate store.
+            // Use verify_none for local development only.
             ctx->set_verify_mode(boost::asio::ssl::verify_none);
 #else
-            // Linux: OpenSSL читает системные CA из /etc/ssl/certs применяются и работают из коробки
+            // Linux: OpenSSL reads system CAs from /etc/ssl/certs out of the box.
             ctx->set_verify_mode(boost::asio::ssl::verify_peer);
             ctx->set_default_verify_paths();
 #endif
@@ -40,10 +40,10 @@ WebSocketClient::WebSocketClient(boost::asio::io_context& io_context)
     });
     
 
-    // Отключаем логирование (можно включить для отладки)
+    // Suppress websocketpp internal logging (re-enable for debugging)
     wsClient_.clear_access_channels(websocketpp::log::alevel::all);
-    
-    // Регистрация обработчиков событий
+
+    // Register event handlers
     wsClient_.set_open_handler([this](ConnectionHandle hdl) { onOpen(hdl); });
     wsClient_.set_message_handler([this](ConnectionHandle hdl, WsClient::message_ptr msg) { 
         onMessage(hdl, msg); 
@@ -70,8 +70,8 @@ void WebSocketClient::start() {
     isRunning_ = true;
     reconnectAttempts_ = 0;
     
-    connect(); // Устанавливаем соединение (без вызова run)
-    wsClient_.run(); // Блокирующий вызов — завершится когда wsClient_.stop() будет вызван
+    connect();      // Initiate connection (does not block)
+    wsClient_.run(); // Blocking: returns only when wsClient_.stop() is called
 }
 
 void WebSocketClient::connect() {
@@ -102,14 +102,14 @@ void WebSocketClient::stop() {
     
     isRunning_ = false;
     
-    // Закрываем активное соединение
+    // Send a clean WebSocket close frame
     if (hdlValid_) {
         websocketpp::lib::error_code ec;
         wsClient_.close(hdl_, websocketpp::close::status::going_away, "Shutdown", ec);
         hdlValid_ = false;
     }
-    
-    // Останавливаем io_context — wsClient_.run() вернётся и wsThread завершится
+
+    // Stop the io_context so that wsClient_.run() returns
     wsClient_.stop();
 }
 
@@ -128,8 +128,8 @@ void WebSocketClient::onMessage(ConnectionHandle hdl, WsClient::message_ptr msg)
     try {
         auto json = nlohmann::json::parse(msg->get_payload());
         
-        // Парсинг сообщения о трейде
-        // Формат Binance: {"e":"trade","E":123456789,"s":"BTCUSDT","t":12345,"p":"0.001","q":"100","m":true,...}
+        // Parse Binance trade event
+        // Format: {"e":"trade","E":123456789,"s":"BTCUSDT","t":12345,"p":"0.001","q":"100","m":true,...}
         if (json.contains("e") && json["e"] == "trade") {
             std::string symbol = json.value("s", "");
             double price = std::stod(json.value("p", "0"));
@@ -175,8 +175,7 @@ void WebSocketClient::scheduleReconnect() {
     
     spdlog::warn("[WebSocket] Reconnecting in {}ms (attempt {})", delayMs, reconnectAttempts_);
     
-    // Используем встроенный таймер websocketpp — не блокирует io_context поток
-    // и не вызывает start() рекурсивно
+    // Use websocketpp's built-in timer, that is  non-blocking, avoids recursive start() calls
     wsClient_.set_timer(delayMs, [this](websocketpp::lib::error_code const& ec) {
         if (!ec && isRunning_) {
             connect();

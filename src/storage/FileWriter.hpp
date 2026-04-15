@@ -17,23 +17,23 @@ public:
     FileWriter(const std::string& filename, int64_t intervalMs);
     ~FileWriter();
     
-    // Запись агрегированных данных (добавляет в буфер)
+    // Buffer incoming stats; flushed to file by the background thread
     void write(const std::map<std::string, TradeStats>& stats);
     
-    // Остановка (с дожиданием завершения записи и закрытием файла)
+    // Stop the writer thread; blocks until all pending data is flushed and file is closed
     void stop();
     
-    // Проверка статуса
+    // Returns true while the writer thread is active
     bool isRunning() const { return isRunning_; }
     
-    // Проверка наличия ошибок файла
+    // Returns true if the output file cannot be written
     bool hasError() const;
 
 private:
-    // Внутренний метод форматирования строки
+    // Format a stats map into the output string
     std::string formatOutput(const std::map<std::string, TradeStats>& stats);
     
-    // Поток записи
+    // Background thread: wakes every intervalMs and flushes pendingStats_
     void writerLoop();
     
     std::ofstream fileStream_;
@@ -45,7 +45,7 @@ private:
     mutable std::mutex mutex_;
     std::condition_variable cv_;
     
-    // Буфер для отложенной записи
+    // Pending stats waiting to be written on the next flush interval
     std::map<std::string, TradeStats> pendingStats_;
 };
 

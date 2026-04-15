@@ -19,13 +19,13 @@ Config loadConfig(const std::string& path) {
         json j;
         file >> j;
         
-        // Чтение с дефолтными значениями
+        // Read fields; fall back to defaults when absent
         config.trading_pairs = j.value("trading_pairs", std::vector<std::string>{"btcusdt", "ethusdt"});
         config.aggregation_window_ms = j.value("aggregation_window_ms", 1000);
         config.serialization_interval_ms = j.value("serialization_interval_ms", 5000);
         config.output_file = j.value("output_file", "market_data.log");
         
-        // Простая валидация
+        // Validate required constraints
         if (config.aggregation_window_ms <= 0) {
             throw std::runtime_error("[Config] aggregation_window_ms must be > 0");
         }

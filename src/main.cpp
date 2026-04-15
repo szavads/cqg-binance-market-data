@@ -7,7 +7,7 @@
 #include "network/WebSocketClient.hpp"
 #include "storage/FileWriter.hpp"
 
-// Глобальный флаг для graceful shutdown
+// Global flag for graceful shutdown
 std::atomic<bool> g_running{true};
 
 void signalHandler(int signum) {
@@ -22,7 +22,7 @@ int main()
 
     spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] %v");
 
-    // Загрузка конфигурации (из config.json)
+    // Load configuration from config.json
     cqg::Config config;
     try {
         config = cqg::loadConfig("config/config.json");
@@ -40,15 +40,15 @@ int main()
     cqg::Aggregator aggregator(windowMs);
     cqg::WebSocketClient client(io_context);
 
-    // FileWriter для записи в файл
+    // File writer for serializing aggregated stats
     cqg::FileWriter writer(config.output_file, serializationIntervalMs);
 
-    // Связываем Aggregator → FileWriter
+    // Wire Aggregator -> FileWriter
     aggregator.setAggregationCallback([&writer](const std::map<std::string, cqg::TradeStats>& stats) {
         writer.write(stats);
     });
     
-    // Связываем WebSocket → Aggregator
+    // Wire WebSocket -> Aggregator
     client.setTradeCallback([&aggregator](const std::string& symbol, 
                                            double price, 
                                            double quantity, 
@@ -57,22 +57,22 @@ int main()
         aggregator.addTrade(symbol, price, quantity, isBuyerMaker, exchangeTime);
     });
 
-    // Подписка на торговые пары
+    // Subscribe to trade streams
     std::vector<std::string> streams;
     for (const auto& pair : pairs) {
         streams.push_back(pair + "@trade");
     }
     client.subscribe(streams);
 
-    // Запуск агрегатора
+    // Start aggregator
     aggregator.start();
 
-    // Запуск WebSocket в отдельном потоке
+    // Run WebSocket client on a dedicated thread
     std::thread wsThread([&client]() {
         client.start();
     });
     
-    // Ожидание сигнала завершения
+    // Wait for shutdown signal
     while (g_running) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }

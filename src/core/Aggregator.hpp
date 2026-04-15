@@ -14,7 +14,7 @@
 
 namespace cqg {
 
-// Структура для агрегированной статистики по паре
+// Per-symbol aggregated trade statistics for one time window
 struct TradeStats {
     std::string symbol;
     int64_t tradeCount = 0;
@@ -27,7 +27,7 @@ struct TradeStats {
     
     bool hasData() const { return tradeCount > 0; }
     
-    // Сброс статистики для нового окна
+    // Reset stats for a new window
     void reset(int64_t newWindowStart) {
         tradeCount = 0;
         totalVolume = 0.0;
@@ -39,33 +39,33 @@ struct TradeStats {
     }
 };
 
-// Callback для передачи агрегированных данных в FileWriter
+// Callback invoked by Aggregator with completed window stats
 using AggregationCallback = std::function<void(const std::map<std::string, TradeStats>&)>;
 
 class Aggregator {
 public:
-    // windowMs: длительность окна агрегации (например, 1000 мс)
+    // windowMs: aggregation window duration in milliseconds (e.g. 1000)
     explicit Aggregator(int64_t windowMs);
     ~Aggregator();
 
-    // Добавление трейда (вызывается из WebSocket callback)
+    // Called from the WebSocket callback on each incoming trade
     void addTrade(const std::string& symbol, 
                   double price, 
                   double quantity, 
                   bool isBuyerMaker,  // true = seller-initiated
                   int64_t exchangeTimeMs);
 
-    // Установка callback для отдачи агрегированных данных
+    // Set the callback to receive completed window stats
     void setAggregationCallback(AggregationCallback callback);
 
-    // Запуск таймера агрегации (вызывать в отдельном потоке)
+    // Start the background aggregation thread
     void start();
     
-    // Остановка
+    // Stop the aggregation thread and flush the last window
     void stop();
 
 private:
-    // Внутренний метод для сброса окон
+    // Flush all symbols with data and invoke the callback
     void processWindows();
 
     int64_t windowMs_;
@@ -76,7 +76,7 @@ private:
     std::atomic<bool> isRunning_;
     std::thread workerThread_;
     
-    // Для отслеживания последнего окна по каждому символу
+    // Tracks the current window start timestamp per symbol
     std::map<std::string, int64_t> lastWindowStart_;
 };
 

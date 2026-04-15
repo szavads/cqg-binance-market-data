@@ -13,17 +13,16 @@ FileWriter::FileWriter(const std::string& filename, int64_t intervalMs)
     , intervalMs_(intervalMs)
     , isRunning_(true) {
     
-    // 1. Открываем файл СРАЗУ в конструкторе
+    // Open the file once at construction time  held open for the service lifetime
     fileStream_.open(filename_, std::ios::out | std::ios::app);
-    
+
     if (!fileStream_.is_open()) {
-        // Критичная ошибка - лучше выбросить исключение
         throw std::runtime_error("[FileWriter] Cannot open file: " + filename_);
     }
     
     spdlog::info("[FileWriter] File opened: {}", filename_);
     
-    // 2. Запускаем поток записи
+    // Start the background writer thread
     writerThread_ = std::thread(&FileWriter::writerLoop, this);
 }
 
@@ -35,14 +34,14 @@ void FileWriter::stop() {
     if (!isRunning_) return;
     
     isRunning_ = false;
-    cv_.notify_one(); // Будим поток немедленно, не ждём окончания sleep
-    
-    // 3. Ждём завершения потока (чтобы дописать все данные)
+    cv_.notify_one(); // Wake the writer thread immediately instead of waiting for the interval
+
+    // Join the thread so all pending data is flushed before closing the file
     if (writerThread_.joinable()) {
         writerThread_.join();
     }
-    
-    // 4. Закрываем файл ТОЛЬКО после остановки потока
+
+    // Close the file only after the writer thread has finished
     std::lock_guard<std::mutex> lock(mutex_);
     if (fileStream_.is_open()) {
         fileStream_.flush();
@@ -52,7 +51,7 @@ void FileWriter::stop() {
 }
 
 void FileWriter::write(const std::map<std::string, TradeStats>& stats) {
-    // 5. Thread-safe добавление в буфер
+    // Thread-safe: buffer incoming stats for the next flush
     std::lock_guard<std::mutex> lock(mutex_);
     for (const auto& [symbol, s] : stats) {
         if (s.hasData()) {
@@ -63,34 +62,33 @@ void FileWriter::write(const std::map<std::string, TradeStats>& stats) {
 
 void FileWriter::writerLoop() {
     while (true) {
-        // Ждём интервал, но выходим досрочно если stop() разбудил нас
+        // Wait for the flush interval; wakes early if stop() is called
         {
             std::unique_lock<std::mutex> lock(mutex_);
             cv_.wait_for(lock, std::chrono::milliseconds(intervalMs_),
                          [this] { return !isRunning_; });
         }
         
-        // 6. Захватываем мьютекс и забираем данные
+        // Grab pending data under lock
         std::map<std::string, TradeStats> snapshot;
         {
             std::lock_guard<std::mutex> lock(mutex_);
             if (pendingStats_.empty()) {
-                if (!isRunning_) break; // Нет данных и стоп — выходим
+                if (!isRunning_) break; // Nothing to write and stopping — exit
                 continue;
             }
             snapshot = std::move(pendingStats_);
         }
         
-        // 7. Форматируем
+        // Format and write to file outside the lock
         std::string output = formatOutput(snapshot);
-        
-        // 8. Пишем в файл (вне мьютекса, но внутри потока)
+
         if (!output.empty() && fileStream_.is_open() && fileStream_.good()) {
             fileStream_ << output << std::endl;
-            fileStream_.flush(); // Гарантия записи
+            fileStream_.flush(); // Ensure data reaches disk
         }
-        
-        if (!isRunning_) break; // Данные записаны — теперь можно выйти
+
+        if (!isRunning_) break; // Data written — safe to exit now
     }
 }
 

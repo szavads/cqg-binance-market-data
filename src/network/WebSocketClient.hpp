@@ -12,7 +12,7 @@
 
 namespace cqg {
 
-// Callback для обработки полученного трейда
+// Callback fired on each parsed Binance trade event
 using TradeCallback = std::function<void(const std::string& symbol, 
                                           double price, 
                                           double quantity, 
@@ -24,24 +24,24 @@ public:
     WebSocketClient(boost::asio::io_context& io_context);
     ~WebSocketClient();
 
-    // Подписка на торговые пары (например, "btcusdt@trade")
+    // Subscribe to Binance trade streams (e.g. "btcusdt@trade")
     void subscribe(const std::vector<std::string>& streams);
     
-    // Запуск клиента (неблокирующий)
+    // Connect and start the io_context loop (blocks until stop() is called)
     void start();
     
-    // Остановка (graceful shutdown)
+    // Close the connection and stop the io_context loop
     void stop();
     
-    // Установка callback для обработки трейдов
+    // Set the callback invoked for each received trade
     void setTradeCallback(TradeCallback callback);
 
 private:
-    // WebSocket типы
+    // WebSocket types
     using WsClient = websocketpp::client<websocketpp::config::asio_tls_client>;
     using ConnectionHandle = websocketpp::connection_hdl;
     
-    // Внутренние методы
+    // Event handlers
     void onOpen(ConnectionHandle hdl);
     void onMessage(ConnectionHandle hdl, WsClient::message_ptr msg);
     void onClose(ConnectionHandle hdl);
@@ -50,10 +50,10 @@ private:
     // Reconnect logic
     void scheduleReconnect();
     
-    // Внутренний метод установки соединения (без run())
+    // Establish a WebSocket connection (does not call run())
     void connect();
     
-    // Состояние
+    // State
     WsClient wsClient_;
     std::vector<std::string> streams_;
     TradeCallback tradeCallback_;
