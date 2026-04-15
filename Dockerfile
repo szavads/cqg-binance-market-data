@@ -21,8 +21,8 @@ COPY . .
 
 # Build
 RUN conan install . --output-folder=build --build=missing && \
-    cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=build/conan_toolchain.cmake && \
+    cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=build/build/generators/conan_toolchain.cmake && \
     cmake --build build --config Release
 
 # Run
-CMD ["./build/bin/binance_service"]
+CMD ["./build/binance_service"]
