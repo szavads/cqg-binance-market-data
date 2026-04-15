@@ -1,17 +1,21 @@
 FROM ubuntu:22.04
 
-# Install dependencies
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install build tools and runtime TLS certificates
+# NOTE: libboost-all-dev intentionally omitted — Boost 1.83 comes from Conan
 RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
+    ninja-build \
     git \
     python3 \
     python3-pip \
-    libboost-all-dev \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Conan
-RUN pip3 install conan
+RUN pip3 install "conan>=2.0"
 
 # Set working directory
 WORKDIR /app
@@ -20,9 +24,13 @@ WORKDIR /app
 COPY . .
 
 # Build
-RUN conan install . --output-folder=build --build=missing && \
-    cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=build/build/generators/conan_toolchain.cmake && \
-    cmake --build build --config Release
+RUN conan profile detect --force && \
+    conan install . --output-folder=build --build=missing -s build_type=Release && \
+    cmake -S . -B build \
+        -DCMAKE_TOOLCHAIN_FILE=build/build/generators/conan_toolchain.cmake \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_TESTS=OFF && \
+    cmake --build build
 
-# Run
+# Run (config/config.json resolves relative to WORKDIR /app)
 CMD ["./build/binance_service"]

@@ -42,6 +42,11 @@ main thread
 
 All shared state is protected by `std::mutex`. `isRunning_` flags are `std::atomic<bool>`. Shutdown sequence: `aggregator.stop()` → `client.stop()` → `writer.stop()` → `wsThread.join()`.
 
+### Design decisions
+
+**Output file opened once for the lifetime of the service.**  
+`FileWriter` opens the file in its constructor and holds the `std::ofstream` open until `stop()` is called and the writer thread has joined. This eliminates repeated `open`/`close` overhead on every flush interval and guarantees that a file-system error (e.g. disk full, path removed) is detected immediately at startup rather than silently mid-run. The `std::ofstream` is flushed after every write batch and closed only after all pending data has been written to disk.
+
 ### Why these libraries
 
 - **websocketpp + Boost.Asio** — header-only WebSocket library with TLS support, integrates naturally with Boost.Asio's io_context. Required by the task (boost).
@@ -144,4 +149,30 @@ ctest --test-dir build -C Release --output-on-failure
 | `ConfigTest` | 6 | Valid load, defaults, invalid path, invalid JSON, validation |
 | `FileWriterTest` | 8 | File creation, error handling, flush, format, shutdown |
 | `AggregatorTest` | 10 | Trade accumulation, window reset, buy/sell semantics, callback |
+
+## Docker
+
+Build and run the service in a container (Linux target, TLS verify_peer enabled):
+
+```bash
+docker build -t binance_service .
+docker run --rm binance_service
+```
+
+To override the config without rebuilding the image:
+
+```bash
+docker run --rm \
+  -v $(pwd)/config/config.json:/app/config/config.json \
+  binance_service
+```
+
+To persist the output log on the host:
+
+```bash
+docker run --rm \
+  -v $(pwd)/config/config.json:/app/config/config.json \
+  -v $(pwd)/logs:/app \
+  binance_service
+```
 
