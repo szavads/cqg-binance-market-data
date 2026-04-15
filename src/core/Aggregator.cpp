@@ -9,6 +9,10 @@ Aggregator::Aggregator(int64_t windowMs)
     : windowMs_(windowMs)
     , isRunning_(false) {}
 
+Aggregator::~Aggregator() {
+    stop();
+}
+
 void Aggregator::setAggregationCallback(AggregationCallback callback) {
     callback_ = std::move(callback);
 }
@@ -49,22 +53,30 @@ void Aggregator::addTrade(const std::string& symbol,
 
 void Aggregator::start() {
     isRunning_ = true;
-    
-    // Запускаем поток для периодической отправки данных
-    std::thread([this]() {
-        while (isRunning_) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(windowMs_));
+    workerThread_ = std::thread([this]() {
+        while (true) {
+            {
+                std::unique_lock<std::mutex> lock(mutex_);
+                cv_.wait_for(lock, std::chrono::milliseconds(windowMs_),
+                             [this] { return !isRunning_.load(); });
+            }
             processWindows();
+            if (!isRunning_) break;
         }
-    }).detach();
+    });
 }
 
 void Aggregator::stop() {
+    if (!isRunning_) return;
     isRunning_ = false;
+    cv_.notify_one();
+    if (workerThread_.joinable()) {
+        workerThread_.join();
+    }
 }
 
 void Aggregator::processWindows() {
-    // 🔧 Thread-safe копирование данных для отправки
+    // Thread-safe копирование данных для отправки
     std::map<std::string, TradeStats> snapshot;
     {
         std::lock_guard<std::mutex> lock(mutex_);

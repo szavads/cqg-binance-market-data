@@ -4,6 +4,9 @@
 #include <string>
 #include <map>
 #include <mutex>
+#include <thread>
+#include <atomic>
+#include <condition_variable>
 #include <cstdint>
 #include <chrono>
 #include <functional>
@@ -43,7 +46,7 @@ class Aggregator {
 public:
     // windowMs: длительность окна агрегации (например, 1000 мс)
     explicit Aggregator(int64_t windowMs);
-    ~Aggregator() = default;
+    ~Aggregator();
 
     // Добавление трейда (вызывается из WebSocket callback)
     void addTrade(const std::string& symbol, 
@@ -68,8 +71,10 @@ private:
     int64_t windowMs_;
     std::map<std::string, TradeStats> stats_;
     mutable std::mutex mutex_;
+    std::condition_variable cv_;
     AggregationCallback callback_;
-    bool isRunning_;
+    std::atomic<bool> isRunning_;
+    std::thread workerThread_;
     
     // Для отслеживания последнего окна по каждому символу
     std::map<std::string, int64_t> lastWindowStart_;
