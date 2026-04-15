@@ -36,8 +36,6 @@ static std::map<std::string, cqg::TradeStats> runAndCollect(
     }
 
     agg.stop();
-    // Let detached thread wake and exit cleanly before agg goes out of scope
-    std::this_thread::sleep_for(std::chrono::milliseconds(TEST_WINDOW_MS + 20));
 
     return result;
 }
@@ -200,7 +198,6 @@ TEST(AggregatorTest, CallbackNotCalledWithNoData) {
     // Wait two full windows without adding any trades
     std::this_thread::sleep_for(std::chrono::milliseconds(2 * TEST_WINDOW_MS + 30));
     agg.stop();
-    std::this_thread::sleep_for(std::chrono::milliseconds(TEST_WINDOW_MS + 20));
 
     EXPECT_EQ(callCount.load(), 0);
 }
@@ -215,4 +212,50 @@ TEST(AggregatorTest, SymbolFieldSetCorrectly) {
 
     ASSERT_TRUE(stats.count("ETHUSDT"));
     EXPECT_EQ(stats.at("ETHUSDT").symbol, "ETHUSDT");
+}
+
+// Test 11: stats are reset after processWindows — second callback sees fresh data only
+TEST(AggregatorTest, StatsResetAfterCallback) {
+    cqg::Aggregator agg(TEST_WINDOW_MS);
+
+    std::vector<std::map<std::string, cqg::TradeStats>> calls;
+    std::atomic<int> callCount{0};
+
+    agg.setAggregationCallback([&](const std::map<std::string, cqg::TradeStats>& s) {
+        calls.push_back(s);
+        callCount++;
+    });
+
+    agg.start();
+
+    // Add 3 trades in first window
+    agg.addTrade("BTCUSDT", 100.0, 1.0, false, 500);
+    agg.addTrade("BTCUSDT", 200.0, 1.0, false, 500);
+    agg.addTrade("BTCUSDT", 300.0, 1.0, false, 500);
+
+    // Wait for first callback
+    auto deadline = std::chrono::steady_clock::now()
+                  + std::chrono::milliseconds(5 * TEST_WINDOW_MS);
+    while (callCount < 1 && std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    // Add 1 trade in a new exchange-time window
+    agg.addTrade("BTCUSDT", 999.0, 1.0, false, TEST_WINDOW_MS * 10 + 500);
+
+    // Wait for second callback
+    deadline = std::chrono::steady_clock::now()
+             + std::chrono::milliseconds(5 * TEST_WINDOW_MS);
+    while (callCount < 2 && std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    agg.stop();
+
+    ASSERT_GE(calls.size(), size_t(2));
+    // First callback: 3 trades
+    EXPECT_EQ(calls[0].at("BTCUSDT").tradeCount, 3);
+    // Second callback: only 1 trade — proves stats were reset between windows
+    EXPECT_EQ(calls[1].at("BTCUSDT").tradeCount, 1);
+    EXPECT_DOUBLE_EQ(calls[1].at("BTCUSDT").minPrice, 999.0);
 }

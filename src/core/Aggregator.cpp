@@ -76,31 +76,23 @@ void Aggregator::stop() {
 }
 
 void Aggregator::processWindows() {
-    // Thread-safe копирование данных для отправки
-    std::map<std::string, TradeStats> snapshot;
+    std::map<std::string, TradeStats> filtered;
+    
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        snapshot = stats_;
-    }
-    
-    // Фильтруем только пары с данными и вызываем callback
-    std::map<std::string, TradeStats> filtered;
-    for (const auto& [symbol, stats] : snapshot) {
-        if (stats.hasData()) {
-            filtered[symbol] = stats;
-        }
-    }
-    
-    if (!filtered.empty() && callback_) {
-        callback_(filtered);
         
-        // Сбрасываем статистику после отправки
-        std::lock_guard<std::mutex> lock(mutex_);
+        // Фильтруем пары с данными и сразу сбрасываем — всё под одним lock
         for (auto& [symbol, stats] : stats_) {
             if (stats.hasData()) {
-                stats.reset((stats.windowStartTime + windowMs_));
+                filtered[symbol] = stats;
+                stats.reset(stats.windowStartTime + windowMs_);
             }
         }
+    }
+    
+    // Вызываем callback вне lock — он может быть долгим (I/O в FileWriter)
+    if (!filtered.empty() && callback_) {
+        callback_(filtered);
     }
 }
 

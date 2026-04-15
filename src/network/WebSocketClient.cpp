@@ -23,10 +23,15 @@ WebSocketClient::WebSocketClient(boost::asio::io_context& io_context)
             ctx->set_options(boost::asio::ssl::context::default_workarounds |
                             boost::asio::ssl::context::no_sslv2 |
                             boost::asio::ssl::context::no_sslv3);
-            ctx->set_verify_mode(boost::asio::ssl::verify_none); // Для упрощения (в production лучше verify_peer)
-            // TODO: добавить CA-сертификаты для проверки сервера
-            // ctx->set_verify_mode(boost::asio::ssl::verify_peer);
-            // ctx->set_default_verify_paths(); // Использовать системные CA-сертификаты
+#ifdef _WIN32
+            // Windows: OpenSSL (Conan) не интегрирован с системным хранилищем сертификатов,
+            // verify_peer без явных CA будет падать. Только для dev-среды используем verify_none.
+            ctx->set_verify_mode(boost::asio::ssl::verify_none);
+#else
+            // Linux: OpenSSL читает системные CA из /etc/ssl/certs применяются и работают из коробки
+            ctx->set_verify_mode(boost::asio::ssl::verify_peer);
+            ctx->set_default_verify_paths();
+#endif
         } catch (const std::exception& e) {
             std::cerr << "[TLS] Error: " << e.what() << std::endl;
         }

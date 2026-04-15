@@ -18,6 +18,7 @@ find_package(websocketpp REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(OpenSSL REQUIRED)
+find_package(Threads REQUIRED)
 
 # Deploy the config file
 configure_file(${CMAKE_SOURCE_DIR}/config/config.json ${CMAKE_BINARY_DIR}/config/config.json COPYONLY)
@@ -53,7 +54,8 @@ target_link_libraries(binance_service PRIVATE
     nlohmann_json::nlohmann_json
     spdlog::spdlog
     OpenSSL::SSL
-    OpenSSL::Crypto 
+    OpenSSL::Crypto
+    Threads::Threads
 )
 
 if(BUILD_TESTS)
