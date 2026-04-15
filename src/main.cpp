@@ -3,6 +3,7 @@
 #include <csignal>
 #include <boost/asio.hpp>
 #include "app.h"
+#include "config/Config.hpp"
 #include "network/WebSocketClient.hpp"
 #include "storage/FileWriter.hpp"
 
@@ -19,17 +20,20 @@ int main()
 {
 	std::cout << greeting_message() << std::endl;
 
-	// TODO: Загрузка конфигурации (из config.json)
-    int64_t windowMs = 1000;        // 1 секунда
-    int64_t serializationIntervalMs = 5000;  // 5 секунд
-    std::vector<std::string> pairs = {"btcusdt", "ethusdt"};
+	// Загрузка конфигурации (из config.json)
+	cqg::Config config = cqg::loadConfig("config/config.json");
+    std::cout << "[Config] Loaded: Window=" << config.aggregation_window_ms 
+              << "ms, Interval=" << config.serialization_interval_ms << "ms" << std::endl;
+    int64_t windowMs = config.aggregation_window_ms;
+    int64_t serializationIntervalMs = config.serialization_interval_ms;
+    std::vector<std::string> pairs = config.trading_pairs;
 
 	boost::asio::io_context io_context;
 	cqg::Aggregator aggregator(windowMs);
     cqg::WebSocketClient client(io_context);
     
 	// FileWriter для записи в файл
-    cqg::FileWriter writer("market_data.log", serializationIntervalMs);
+    cqg::FileWriter writer(config.output_file, serializationIntervalMs);
     
  	// Связываем Aggregator → FileWriter
     aggregator.setAggregationCallback([&writer](const std::map<std::string, cqg::TradeStats>& stats) {

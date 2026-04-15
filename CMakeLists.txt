@@ -19,6 +19,9 @@ find_package(nlohmann_json REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(OpenSSL REQUIRED)
 
+# Deploy the config file
+configure_file(${CMAKE_SOURCE_DIR}/config/config.json ${CMAKE_BINARY_DIR}/config/config.json COPYONLY)
+
 # Enable Hot Reload for MSVC compilers if supported.
 if (POLICY CMP0141)
   cmake_policy(SET CMP0141 NEW)
@@ -46,6 +49,7 @@ add_executable(binance_service
   src/network/WebSocketClient.cpp
   src/core/Aggregator.cpp
   src/storage/FileWriter.cpp 
+  src/config/Config.cpp
 )
 
 target_link_libraries(binance_service PRIVATE
