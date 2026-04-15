@@ -4,9 +4,11 @@ add_executable(binance_service_tests
     ConfigTests.cpp
     FileWriterTests.cpp
     AggregatorTests.cpp
+    WebSocketClientTests.cpp
     ../src/config/Config.cpp
     ../src/storage/FileWriter.cpp
     ../src/core/Aggregator.cpp
+    ../src/network/TradeParser.cpp
 )
 
 target_include_directories(binance_service_tests PRIVATE ${CMAKE_SOURCE_DIR}/src)

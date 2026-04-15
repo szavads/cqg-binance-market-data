@@ -1,8 +1,8 @@
 // src/network/WebSocketClient.cpp
 #include "WebSocketClient.hpp"
+#include "TradeParser.hpp"
 #include <thread>
 #include <chrono>
-#include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
 namespace cqg {
@@ -124,26 +124,11 @@ void WebSocketClient::onMessage(ConnectionHandle hdl, WsClient::message_ptr msg)
     if (msg->get_opcode() != websocketpp::frame::opcode::text) {
         return;
     }
-    
-    try {
-        auto json = nlohmann::json::parse(msg->get_payload());
-        
-        // Parse Binance trade event
-        // Format: {"e":"trade","E":123456789,"s":"BTCUSDT","t":12345,"p":"0.001","q":"100","m":true,...}
-        if (json.contains("e") && json["e"] == "trade") {
-            std::string symbol = json.value("s", "");
-            double price = std::stod(json.value("p", "0"));
-            double quantity = std::stod(json.value("q", "0"));
-            bool isBuyerMaker = json.value("m", false); // true = seller-initiated
-            int64_t exchangeTime = json.value("T", 0);
-            
-            if (tradeCallback_) {
-                tradeCallback_(symbol, price, quantity, isBuyerMaker, exchangeTime);
-            }
-        }
-        
-    } catch (const std::exception& e) {
-        spdlog::error("[WebSocket] Parse error: {}", e.what());
+
+    auto event = parseTrade(msg->get_payload());
+    if (event && tradeCallback_) {
+        tradeCallback_(event->symbol, event->price, event->quantity,
+                       event->isBuyerMaker, event->exchangeTimeMs);
     }
 }
 

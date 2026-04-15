@@ -142,13 +142,14 @@ cmake --build build --config Release
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-24 unit tests across three suites:
+32 unit tests across four suites:
 
 | Suite | Tests | What is covered |
 |---|---|---|
 | `ConfigTest` | 6 | Valid load, defaults, invalid path, invalid JSON, validation |
 | `FileWriterTest` | 8 | File creation, error handling, flush, format, shutdown |
-| `AggregatorTest` | 10 | Trade accumulation, window reset, buy/sell semantics, callback |
+| `AggregatorTest` | 11 | Trade accumulation, window reset, buy/sell semantics, callback, stats reset after flush |
+| `TradeParserTest` | 7 | Valid trade, buyer/seller flags, non-trade events, missing fields, malformed JSON, empty payload |
 
 ## Docker
 

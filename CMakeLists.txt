@@ -41,6 +41,7 @@ endif()
 add_executable(binance_service
   src/main.cpp
   src/network/WebSocketClient.cpp
+  src/network/TradeParser.cpp
   src/core/Aggregator.cpp
   src/storage/FileWriter.cpp 
   src/config/Config.cpp
