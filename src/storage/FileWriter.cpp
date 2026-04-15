@@ -1,7 +1,7 @@
 // src/storage/FileWriter.cpp
 #include "FileWriter.hpp"
-#include <iostream>
 #include <chrono>
+#include <spdlog/spdlog.h>
 #include <iomanip>
 #include <sstream>
 #include <ctime>
@@ -21,7 +21,7 @@ FileWriter::FileWriter(const std::string& filename, int64_t intervalMs)
         throw std::runtime_error("[FileWriter] Cannot open file: " + filename_);
     }
     
-    std::cout << "[FileWriter] File opened successfully: " << filename_ << std::endl;
+    spdlog::info("[FileWriter] File opened: {}", filename_);
     
     // 2. Запускаем поток записи
     writerThread_ = std::thread(&FileWriter::writerLoop, this);
@@ -47,7 +47,7 @@ void FileWriter::stop() {
     if (fileStream_.is_open()) {
         fileStream_.flush();
         fileStream_.close();
-        std::cout << "[FileWriter] File closed" << std::endl;
+        spdlog::info("[FileWriter] File closed");
     }
 }
 

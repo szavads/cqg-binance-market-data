@@ -15,6 +15,7 @@ target_link_libraries(binance_service_tests PRIVATE
     GTest::gtest
     GTest::gtest_main
     nlohmann_json::nlohmann_json
+    spdlog::spdlog
     Threads::Threads
 )
 

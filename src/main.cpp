@@ -1,8 +1,8 @@
-#include <iostream>
 #include <thread>
 #include <atomic>
 #include <csignal>
 #include <boost/asio.hpp>
+#include <spdlog/spdlog.h>
 #include "config/Config.hpp"
 #include "network/WebSocketClient.hpp"
 #include "storage/FileWriter.hpp"
@@ -20,16 +20,18 @@ int main()
     signal(SIGINT,  signalHandler);
     signal(SIGTERM, signalHandler);
 
+    spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] %v");
+
     // Загрузка конфигурации (из config.json)
     cqg::Config config;
     try {
         config = cqg::loadConfig("config/config.json");
     } catch (const std::exception& e) {
-        std::cerr << e.what() << std::endl;
+        spdlog::error("{}", e.what());
         return 1;
     }
-    std::cout << "[Config] Loaded: Window=" << config.aggregation_window_ms 
-              << "ms, Interval=" << config.serialization_interval_ms << "ms" << std::endl;
+    spdlog::info("[Config] Loaded: Window={}ms, Interval={}ms",
+                 config.aggregation_window_ms, config.serialization_interval_ms);
     int64_t windowMs = config.aggregation_window_ms;
     int64_t serializationIntervalMs = config.serialization_interval_ms;
     std::vector<std::string> pairs = config.trading_pairs;
@@ -75,17 +77,17 @@ int main()
     while (g_running) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
-    std::cout << "\n[Signal] Shutting down..." << std::endl;
+    spdlog::info("[Signal] Shutting down...");
 
-	// Graceful shutdown
-    std::cout << "[Main] Stopping services..." << std::endl;
+    // Graceful shutdown
+    spdlog::info("[Main] Stopping services...");
     aggregator.stop();
     client.stop();
     writer.stop();
     
     wsThread.join();
     
-    std::cout << "[Main] Service stopped gracefully" << std::endl;
+    spdlog::info("[Main] Service stopped gracefully");
     return 0;
 }
 

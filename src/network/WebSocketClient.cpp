@@ -1,9 +1,9 @@
 // src/network/WebSocketClient.cpp
 #include "WebSocketClient.hpp"
-#include <iostream>
 #include <thread>
 #include <chrono>
 #include <nlohmann/json.hpp>
+#include <spdlog/spdlog.h>
 
 namespace cqg {
 
@@ -33,7 +33,7 @@ WebSocketClient::WebSocketClient(boost::asio::io_context& io_context)
             ctx->set_default_verify_paths();
 #endif
         } catch (const std::exception& e) {
-            std::cerr << "[TLS] Error: " << e.what() << std::endl;
+            spdlog::error("[TLS] Error: {}", e.what());
         }
         
         return ctx;
@@ -86,13 +86,13 @@ void WebSocketClient::connect() {
         websocketpp::lib::error_code ec;
         auto con = wsClient_.get_connection(url, ec);
         if (ec) {
-            std::cerr << "[WebSocket] Connection error: " << ec.message() << std::endl;
+            spdlog::error("[WebSocket] Connection error: {}", ec.message());
             scheduleReconnect();
             return;
         }
         wsClient_.connect(con);
     } catch (const std::exception& e) {
-        std::cerr << "[WebSocket] Connect error: " << e.what() << std::endl;
+        spdlog::error("[WebSocket] Connect error: {}", e.what());
         scheduleReconnect();
     }
 }
@@ -116,7 +116,7 @@ void WebSocketClient::stop() {
 void WebSocketClient::onOpen(ConnectionHandle hdl) {
     hdl_ = hdl;
     hdlValid_ = true;
-    std::cout << "[WebSocket] Connected to Binance" << std::endl;
+    spdlog::info("[WebSocket] Connected to Binance");
     reconnectAttempts_ = 0;
 }
 
@@ -143,13 +143,13 @@ void WebSocketClient::onMessage(ConnectionHandle hdl, WsClient::message_ptr msg)
         }
         
     } catch (const std::exception& e) {
-        std::cerr << "[WebSocket] Parse error: " << e.what() << std::endl;
+        spdlog::error("[WebSocket] Parse error: {}", e.what());
     }
 }
 
 void WebSocketClient::onClose(ConnectionHandle hdl) {
     hdlValid_ = false;
-    std::cout << "[WebSocket] Connection closed" << std::endl;
+    spdlog::info("[WebSocket] Connection closed");
     if (isRunning_) {
         scheduleReconnect();
     }
@@ -157,7 +157,7 @@ void WebSocketClient::onClose(ConnectionHandle hdl) {
 
 void WebSocketClient::onError(ConnectionHandle hdl) {
     hdlValid_ = false;
-    std::cerr << "[WebSocket] Connection error" << std::endl;
+    spdlog::error("[WebSocket] Connection error");
     if (isRunning_) {
         scheduleReconnect();
     }
@@ -173,8 +173,7 @@ void WebSocketClient::scheduleReconnect() {
     );
     reconnectAttempts_++;
     
-    std::cout << "[WebSocket] Reconnecting in " << delayMs << "ms (attempt "
-              << reconnectAttempts_ << ")" << std::endl;
+    spdlog::warn("[WebSocket] Reconnecting in {}ms (attempt {})", delayMs, reconnectAttempts_);
     
     // Используем встроенный таймер websocketpp — не блокирует io_context поток
     // и не вызывает start() рекурсивно
