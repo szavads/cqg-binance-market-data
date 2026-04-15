@@ -65,31 +65,29 @@ void WebSocketClient::start() {
     isRunning_ = true;
     reconnectAttempts_ = 0;
     
-    // Формируем URL для Binance WebSocket
-    // Пример: wss://stream.binance.com:9443/ws/btcusdt@trade/ethusdt@trade
+    connect(); // Устанавливаем соединение (без вызова run)
+    wsClient_.run(); // Блокирующий вызов — завершится когда wsClient_.stop() будет вызван
+}
+
+void WebSocketClient::connect() {
     std::string streamPath;
     for (size_t i = 0; i < streams_.size(); ++i) {
         streamPath += streams_[i];
         if (i < streams_.size() - 1) streamPath += "/";
     }
-    
     std::string url = "wss://stream.binance.com:9443/ws/" + streamPath;
     
     try {
         websocketpp::lib::error_code ec;
         auto con = wsClient_.get_connection(url, ec);
-        
         if (ec) {
-            std::cerr << "Connection error: " << ec.message() << std::endl;
+            std::cerr << "[WebSocket] Connection error: " << ec.message() << std::endl;
             scheduleReconnect();
             return;
         }
-        
         wsClient_.connect(con);
-        wsClient_.run(); // Блокирующий вызов (запускается в отдельном потоке)
-        
     } catch (const std::exception& e) {
-        std::cerr << "Start error: " << e.what() << std::endl;
+        std::cerr << "[WebSocket] Connect error: " << e.what() << std::endl;
         scheduleReconnect();
     }
 }
@@ -98,14 +96,23 @@ void WebSocketClient::stop() {
     if (!isRunning_) return;
     
     isRunning_ = false;
-    wsClient_.stop_listening();
-    // TODO: close left connections gracefully
-    // wsClient_.close_all_connections(websocketpp::close::status::normal, "Shutdown");
+    
+    // Закрываем активное соединение
+    if (hdlValid_) {
+        websocketpp::lib::error_code ec;
+        wsClient_.close(hdl_, websocketpp::close::status::going_away, "Shutdown", ec);
+        hdlValid_ = false;
+    }
+    
+    // Останавливаем io_context — wsClient_.run() вернётся и wsThread завершится
+    wsClient_.stop();
 }
 
 void WebSocketClient::onOpen(ConnectionHandle hdl) {
+    hdl_ = hdl;
+    hdlValid_ = true;
     std::cout << "[WebSocket] Connected to Binance" << std::endl;
-    reconnectAttempts_ = 0; // Сброс счетчика при успешном подключении
+    reconnectAttempts_ = 0;
 }
 
 void WebSocketClient::onMessage(ConnectionHandle hdl, WsClient::message_ptr msg) {
@@ -136,6 +143,7 @@ void WebSocketClient::onMessage(ConnectionHandle hdl, WsClient::message_ptr msg)
 }
 
 void WebSocketClient::onClose(ConnectionHandle hdl) {
+    hdlValid_ = false;
     std::cout << "[WebSocket] Connection closed" << std::endl;
     if (isRunning_) {
         scheduleReconnect();
@@ -143,6 +151,7 @@ void WebSocketClient::onClose(ConnectionHandle hdl) {
 }
 
 void WebSocketClient::onError(ConnectionHandle hdl) {
+    hdlValid_ = false;
     std::cerr << "[WebSocket] Connection error" << std::endl;
     if (isRunning_) {
         scheduleReconnect();
@@ -157,19 +166,18 @@ void WebSocketClient::scheduleReconnect() {
         RECONNECT_BASE_DELAY_MS * (1 << reconnectAttempts_),
         MAX_RECONNECT_DELAY_MS
     );
-    
     reconnectAttempts_++;
     
-    std::cout << "[WebSocket] Reconnecting in " << delayMs << "ms (attempt " 
+    std::cout << "[WebSocket] Reconnecting in " << delayMs << "ms (attempt "
               << reconnectAttempts_ << ")" << std::endl;
     
-    // Планируем повторное подключение
-    // В реальной реализации нужно использовать таймер ASIO
-    std::this_thread::sleep_for(std::chrono::milliseconds(delayMs));
-    
-    if (isRunning_) {
-        start(); // Рекурсивный вызов (упрощенно)
-    }
+    // Используем встроенный таймер websocketpp — не блокирует io_context поток
+    // и не вызывает start() рекурсивно
+    wsClient_.set_timer(delayMs, [this](websocketpp::lib::error_code const& ec) {
+        if (!ec && isRunning_) {
+            connect();
+        }
+    });
 }
 
 } // namespace cqg

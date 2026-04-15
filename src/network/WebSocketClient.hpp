@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <atomic>
 
 namespace cqg {
 
@@ -49,12 +50,17 @@ private:
     // Reconnect logic
     void scheduleReconnect();
     
+    // Внутренний метод установки соединения (без run())
+    void connect();
+    
     // Состояние
     WsClient wsClient_;
     std::vector<std::string> streams_;
     TradeCallback tradeCallback_;
-    bool isRunning_;
+    std::atomic<bool> isRunning_;
     int reconnectAttempts_;
+    ConnectionHandle hdl_;
+    bool hdlValid_ = false;
     static constexpr int MAX_RECONNECT_DELAY_MS = 60000;
     static constexpr int RECONNECT_BASE_DELAY_MS = 1000;
 };

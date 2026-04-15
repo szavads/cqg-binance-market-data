@@ -22,7 +22,7 @@ void Aggregator::addTrade(const std::string& symbol,
                           double quantity, 
                           bool isBuyerMaker,
                           int64_t exchangeTimeMs) {
-    // 🔧 Thread-safe добавление данных
+    // Thread-safe добавление данных
     std::lock_guard<std::mutex> lock(mutex_);
     
     // Определяем начало окна для этого трейда
