@@ -35,6 +35,7 @@ void FileWriter::stop() {
     if (!isRunning_) return;
     
     isRunning_ = false;
+    cv_.notify_one(); // Будим поток немедленно, не ждём окончания sleep
     
     // 3. Ждём завершения потока (чтобы дописать все данные)
     if (writerThread_.joinable()) {
@@ -61,10 +62,13 @@ void FileWriter::write(const std::map<std::string, TradeStats>& stats) {
 }
 
 void FileWriter::writerLoop() {
-    while (isRunning_) {
-        // Ждём интервал
-        std::this_thread::sleep_for(std::chrono::milliseconds(intervalMs_));
-        // После пробуждения продолжаем даже если isRunning_ стал false — чтобы сбросить буфер
+    while (true) {
+        // Ждём интервал, но выходим досрочно если stop() разбудил нас
+        {
+            std::unique_lock<std::mutex> lock(mutex_);
+            cv_.wait_for(lock, std::chrono::milliseconds(intervalMs_),
+                         [this] { return !isRunning_; });
+        }
         
         // 6. Захватываем мьютекс и забираем данные
         std::map<std::string, TradeStats> snapshot;
@@ -85,10 +89,13 @@ void FileWriter::writerLoop() {
             fileStream_ << output << std::endl;
             fileStream_.flush(); // Гарантия записи
         }
+        
+        if (!isRunning_) break; // Данные записаны — теперь можно выйти
     }
 }
 
 bool FileWriter::hasError() const {
+    std::lock_guard<std::mutex> lock(mutex_);
     return !fileStream_.is_open() || !fileStream_.good();
 }
 
@@ -97,10 +104,8 @@ std::string FileWriter::formatOutput(const std::map<std::string, TradeStats>& st
     
     auto now = std::chrono::system_clock::now();
     auto time_t_now = std::chrono::system_clock::to_time_t(now);
-    std::tm tm_buf{};
-    gmtime_s(&tm_buf, &time_t_now);
     std::stringstream ss;
-    ss << std::put_time(&tm_buf, "%Y-%m-%dT%H:%M:%SZ");
+    ss << std::put_time(std::gmtime(&time_t_now), "%Y-%m-%dT%H:%M:%SZ");
     std::string timestamp = ss.str();
     
     std::ostringstream out;

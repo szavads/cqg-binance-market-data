@@ -6,6 +6,7 @@
 #include <thread>
 #include <atomic>
 #include <mutex>
+#include <condition_variable>
 #include <fstream>
 #include "core/Aggregator.hpp"
 
@@ -41,7 +42,8 @@ private:
     int64_t intervalMs_;
     std::atomic<bool> isRunning_;
     std::thread writerThread_;
-    std::mutex mutex_;
+    mutable std::mutex mutex_;
+    std::condition_variable cv_;
     
     // Буфер для отложенной записи
     std::map<std::string, TradeStats> pendingStats_;
