@@ -37,13 +37,6 @@ if(MSVC)
   string(APPEND CMAKE_SHARED_LINKER_FLAGS_RELEASE " /DEBUG:FULL")
 endif()
 
-# Main executable
-add_library(binance_service_core
-  src/app.cpp
-)
-
-target_include_directories(binance_service_core PUBLIC src)
-
 add_executable(binance_service
   src/main.cpp
   src/network/WebSocketClient.cpp
@@ -52,8 +45,9 @@ add_executable(binance_service
   src/config/Config.cpp
 )
 
+target_include_directories(binance_service PRIVATE src)
+
 target_link_libraries(binance_service PRIVATE
-  binance_service_core
     Boost::system
     websocketpp::websocketpp
     nlohmann_json::nlohmann_json

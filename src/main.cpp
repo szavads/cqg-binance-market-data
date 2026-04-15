@@ -2,7 +2,6 @@
 #include <thread>
 #include <csignal>
 #include <boost/asio.hpp>
-#include "app.h"
 #include "config/Config.hpp"
 #include "network/WebSocketClient.hpp"
 #include "storage/FileWriter.hpp"
@@ -18,8 +17,6 @@ void signalHandler(int signum) {
 
 int main()
 {
-	std::cout << greeting_message() << std::endl;
-
 	// Загрузка конфигурации (из config.json)
 	cqg::Config config = cqg::loadConfig("config/config.json");
     std::cout << "[Config] Loaded: Window=" << config.aggregation_window_ms 

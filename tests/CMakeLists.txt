@@ -6,14 +6,14 @@ add_executable(binance_service_tests
     ../src/config/Config.cpp
     ../src/storage/FileWriter.cpp
     ../src/core/Aggregator.cpp
-    main_test.cpp
 )
 
+target_include_directories(binance_service_tests PRIVATE ${CMAKE_SOURCE_DIR}/src)
+
 target_link_libraries(binance_service_tests PRIVATE
-    binance_service_core
     GTest::gtest
     GTest::gtest_main
-	nlohmann_json::nlohmann_json
+    nlohmann_json::nlohmann_json
 )
 
 include(GoogleTest)
