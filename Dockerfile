@@ -35,3 +35,4 @@ RUN conan profile detect --force && \
 
 # Run (config/config.json resolves relative to WORKDIR /app)
 CMD ["./build/binance_service"]
+

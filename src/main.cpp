@@ -1,5 +1,6 @@
 #include <iostream>
 #include <thread>
+#include <atomic>
 #include <csignal>
 #include <boost/asio.hpp>
 #include "config/Config.hpp"
@@ -10,7 +11,6 @@
 std::atomic<bool> g_running{true};
 
 void signalHandler(int signum) {
-    std::cout << "\n[Signal] Interrupt received (" << signum << "), shutting down..." << std::endl;
     g_running = false;
 }
 
@@ -20,8 +20,14 @@ int main()
     signal(SIGINT,  signalHandler);
     signal(SIGTERM, signalHandler);
 
-	// Загрузка конфигурации (из config.json)
-	cqg::Config config = cqg::loadConfig("config/config.json");
+    // Загрузка конфигурации (из config.json)
+    cqg::Config config;
+    try {
+        config = cqg::loadConfig("config/config.json");
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << std::endl;
+        return 1;
+    }
     std::cout << "[Config] Loaded: Window=" << config.aggregation_window_ms 
               << "ms, Interval=" << config.serialization_interval_ms << "ms" << std::endl;
     int64_t windowMs = config.aggregation_window_ms;
@@ -65,10 +71,11 @@ int main()
         client.start();
     });
     
-	// Ожидание сигнала завершения
+    // Ожидание сигнала завершения
     while (g_running) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
+    std::cout << "\n[Signal] Shutting down..." << std::endl;
 
 	// Graceful shutdown
     std::cout << "[Main] Stopping services..." << std::endl;
