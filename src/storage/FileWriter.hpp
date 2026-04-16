@@ -3,6 +3,7 @@
 
 #include <string>
 #include <map>
+#include <vector>
 #include <thread>
 #include <atomic>
 #include <mutex>
@@ -45,8 +46,9 @@ private:
     mutable std::mutex mutex_;
     std::condition_variable cv_;
     
-    // Pending stats waiting to be written on the next flush interval
-    std::map<std::string, TradeStats> pendingStats_;
+    // Pending stats waiting to be written on the next flush interval.
+    // Each entry is one completed aggregation window.
+    std::vector<std::map<std::string, TradeStats>> pendingBatches_;
 };
 
 } // namespace cqg

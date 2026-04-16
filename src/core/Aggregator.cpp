@@ -84,6 +84,7 @@ void Aggregator::processWindows() {
         for (auto& [symbol, stats] : stats_) {
             if (stats.hasData()) {
                 filtered[symbol] = stats;
+                filtered[symbol].windowEndTimeMs = stats.windowStartTime + windowMs_;
                 stats.reset(stats.windowStartTime + windowMs_);
             }
         }

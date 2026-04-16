@@ -51,13 +51,27 @@ void FileWriter::stop() {
 }
 
 void FileWriter::write(const std::map<std::string, TradeStats>& stats) {
-    // Thread-safe: buffer incoming stats for the next flush
-    std::lock_guard<std::mutex> lock(mutex_);
+    // Filter out empty symbols
+    std::map<std::string, TradeStats> batch;
     for (const auto& [symbol, s] : stats) {
-        if (s.hasData()) {
-            pendingStats_[symbol] = s;
+        if (s.hasData()) batch[symbol] = s;
+    }
+    if (batch.empty()) return;
+
+    int64_t windowEndMs = batch.begin()->second.windowEndTimeMs;
+
+    std::lock_guard<std::mutex> lock(mutex_);
+    // Merge into an existing batch for the same window end time if one exists.
+    // This handles late-arriving trades for an already-enqueued window.
+    for (auto& existing : pendingBatches_) {
+        if (!existing.empty() && existing.begin()->second.windowEndTimeMs == windowEndMs) {
+            for (auto& [symbol, s] : batch) {
+                existing[symbol] = std::move(s);
+            }
+            return;
         }
     }
+    pendingBatches_.push_back(std::move(batch));
 }
 
 void FileWriter::writerLoop() {
@@ -69,24 +83,25 @@ void FileWriter::writerLoop() {
                          [this] { return !isRunning_; });
         }
         
-        // Grab pending data under lock
-        std::map<std::string, TradeStats> snapshot;
+        // Grab all accumulated batches under lock
+        std::vector<std::map<std::string, TradeStats>> batches;
         {
             std::lock_guard<std::mutex> lock(mutex_);
-            if (pendingStats_.empty()) {
+            if (pendingBatches_.empty()) {
                 if (!isRunning_) break; // Nothing to write and stopping — exit
                 continue;
             }
-            snapshot = std::move(pendingStats_);
+            batches = std::move(pendingBatches_);
         }
-        
-        // Format and write to file outside the lock
-        std::string output = formatOutput(snapshot);
 
-        if (!output.empty() && fileStream_.is_open() && fileStream_.good()) {
-            fileStream_ << output << std::endl;
-            fileStream_.flush(); // Ensure data reaches disk
+        // Write each window batch as a separate block
+        for (const auto& batch : batches) {
+            std::string output = formatOutput(batch);
+            if (!output.empty() && fileStream_.is_open() && fileStream_.good()) {
+                fileStream_ << output << "\n";
+            }
         }
+        fileStream_.flush(); // Single flush for all batches
 
         if (!isRunning_) break; // Data written — safe to exit now
     }
@@ -99,15 +114,17 @@ bool FileWriter::hasError() const {
 
 std::string FileWriter::formatOutput(const std::map<std::string, TradeStats>& stats) {
     if (stats.empty()) return "";
-    
-    auto now = std::chrono::system_clock::now();
-    auto time_t_now = std::chrono::system_clock::to_time_t(now);
+
+    // Use exchange-derived window end time as timestamp (deterministic, independent of local clock)
+    int64_t windowEndMs = stats.begin()->second.windowEndTimeMs;
+    auto tp = std::chrono::system_clock::time_point(
+        std::chrono::milliseconds(windowEndMs));
+    auto time_t_val = std::chrono::system_clock::to_time_t(tp);
     std::stringstream ss;
-    ss << std::put_time(std::gmtime(&time_t_now), "%Y-%m-%dT%H:%M:%SZ");
-    std::string timestamp = ss.str();
-    
+    ss << std::put_time(std::gmtime(&time_t_val), "%Y-%m-%dT%H:%M:%SZ");
+
     std::ostringstream out;
-    out << "timestamp=" << timestamp;
+    out << "timestamp=" << ss.str();
     
     for (const auto& [symbol, s] : stats) {
         out << "\nsymbol=" << symbol

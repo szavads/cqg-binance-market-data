@@ -23,7 +23,8 @@ struct TradeStats {
     double maxPrice = std::numeric_limits<double>::lowest();
     int64_t buyerInitiated = 0;    // m = false (buyer is taker)
     int64_t sellerInitiated = 0;   // m = true (seller is taker)
-    int64_t windowStartTime = 0;   // exchange timestamp (ms)
+    int64_t windowStartTime = 0;    // exchange timestamp of window open (ms)
+    int64_t windowEndTimeMs = 0;    // exchange timestamp of window close (ms)
     
     bool hasData() const { return tradeCount > 0; }
     
@@ -36,6 +37,7 @@ struct TradeStats {
         buyerInitiated = 0;
         sellerInitiated = 0;
         windowStartTime = newWindowStart;
+        windowEndTimeMs = 0;
     }
 };
 
