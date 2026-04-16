@@ -203,3 +203,116 @@ TEST(FileWriterTest, HasErrorFalseForHealthyWriter) {
 
     fs::remove(path);
 }
+
+// Helper: build stats with explicit windowEndTimeMs
+static cqg::TradeStats makeStatsWithWindow(const std::string& symbol,
+                                            int64_t trades,
+                                            double volume,
+                                            double minP, double maxP,
+                                            int64_t buy, int64_t sell,
+                                            int64_t windowEndTimeMs) {
+    cqg::TradeStats s = makeStats(symbol, trades, volume, minP, maxP, buy, sell);
+    s.windowEndTimeMs = windowEndTimeMs;
+    return s;
+}
+
+// Test 9: timestamp in output is derived from windowEndTimeMs, not local clock
+TEST(FileWriterTest, TimestampComesFromExchangeWindowEnd) {
+    // Arrange: windowEndTimeMs = 2025-01-02T02:04:05Z in milliseconds
+    // Verified: 1735783445 * 1000 ms → "2025-01-02T02:04:05Z"
+    constexpr int64_t exchangeEndMs = 1735783445LL * 1000;
+
+    fs::path path = tempFilePath();
+    {
+        cqg::FileWriter writer(path.string(), 100);
+
+        std::map<std::string, cqg::TradeStats> stats;
+        stats["BTCUSDT"] = makeStatsWithWindow("BTCUSDT", 1, 1.0, 100.0, 100.0, 1, 0,
+                                               exchangeEndMs);
+
+        writer.write(stats);
+        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+        writer.stop();
+    }
+
+    std::string content = readFile(path);
+    // The timestamp must match the exchange window end, not the local wall clock
+    EXPECT_NE(content.find("timestamp=2025-01-02T02:04:05Z"), std::string::npos)
+        << "Full output:\n" << content;
+
+    fs::remove(path);
+}
+
+// Test 10: two write() calls with the same windowEndTimeMs are merged into one block
+TEST(FileWriterTest, SameWindowEndMergesIntoOneBlock) {
+    constexpr int64_t sharedWindowEndMs = 1735783445LL * 1000;
+
+    fs::path path = tempFilePath();
+    {
+        cqg::FileWriter writer(path.string(), 500 /*ms — long enough to accumulate both writes*/);
+
+        // First write: only BTCUSDT
+        std::map<std::string, cqg::TradeStats> batch1;
+        batch1["BTCUSDT"] = makeStatsWithWindow("BTCUSDT", 3, 6.0, 100.0, 102.0, 2, 1,
+                                                sharedWindowEndMs);
+        writer.write(batch1);
+
+        // Second write: only ETHUSDT — same window
+        std::map<std::string, cqg::TradeStats> batch2;
+        batch2["ETHUSDT"] = makeStatsWithWindow("ETHUSDT", 5, 10.0, 200.0, 205.0, 3, 2,
+                                                sharedWindowEndMs);
+        writer.write(batch2);
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(700));
+        writer.stop();
+    }
+
+    std::string content = readFile(path);
+
+    // There must be exactly one timestamp block
+    size_t firstPos = content.find("timestamp=");
+    ASSERT_NE(firstPos, std::string::npos);
+    EXPECT_EQ(content.find("timestamp=", firstPos + 1), std::string::npos)
+        << "Expected one timestamp block, got two:\n" << content;
+
+    // Both symbols must appear in that single block
+    EXPECT_NE(content.find("symbol=BTCUSDT"), std::string::npos);
+    EXPECT_NE(content.find("symbol=ETHUSDT"), std::string::npos);
+
+    fs::remove(path);
+}
+
+// Test 11: two write() calls with different windowEndTimeMs produce two separate blocks
+TEST(FileWriterTest, DifferentWindowEndsProduceSeparateBlocks) {
+    constexpr int64_t windowEnd1Ms = 1735783445LL * 1000; // 2026-01-02T03:04:05Z
+    constexpr int64_t windowEnd2Ms = 1735783446LL * 1000; // 2026-01-02T03:04:06Z
+
+    fs::path path = tempFilePath();
+    {
+        cqg::FileWriter writer(path.string(), 500);
+
+        std::map<std::string, cqg::TradeStats> batch1;
+        batch1["BTCUSDT"] = makeStatsWithWindow("BTCUSDT", 1, 1.0, 100.0, 100.0, 1, 0,
+                                                windowEnd1Ms);
+        writer.write(batch1);
+
+        std::map<std::string, cqg::TradeStats> batch2;
+        batch2["BTCUSDT"] = makeStatsWithWindow("BTCUSDT", 2, 2.0, 101.0, 101.0, 0, 2,
+                                                windowEnd2Ms);
+        writer.write(batch2);
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(700));
+        writer.stop();
+    }
+
+    std::string content = readFile(path);
+
+    // Two distinct timestamp lines expected
+    size_t pos1 = content.find("timestamp=2025-01-02T02:04:05Z");
+    size_t pos2 = content.find("timestamp=2025-01-02T02:04:06Z");
+
+    EXPECT_NE(pos1, std::string::npos) << "Missing first window timestamp\n" << content;
+    EXPECT_NE(pos2, std::string::npos) << "Missing second window timestamp\n" << content;
+
+    fs::remove(path);
+}
