@@ -112,9 +112,9 @@ TEST(FileWriterTest, SkipsEmptyStats) {
         writer.stop();
     }
 
-    // Assert: file should be empty (nothing to write)
+    // Assert: no trade data written (session header is allowed)
     std::string content = readFile(path);
-    EXPECT_TRUE(content.empty());
+    EXPECT_EQ(content.find("timestamp="), std::string::npos);
 
     // Cleanup
     fs::remove(path);

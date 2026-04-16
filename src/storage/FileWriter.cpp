@@ -21,6 +21,14 @@ FileWriter::FileWriter(const std::string& filename, int64_t intervalMs)
     }
     
     spdlog::info("[FileWriter] File opened: {}", filename_);
+
+    // Write a session separator so runs are distinguishable in the log
+    auto now = std::chrono::system_clock::now();
+    auto tt  = std::chrono::system_clock::to_time_t(now);
+    std::stringstream ts;
+    ts << std::put_time(std::gmtime(&tt), "%Y-%m-%dT%H:%M:%SZ");
+    fileStream_ << "# session started " << ts.str() << "\n";
+    fileStream_.flush();
     
     // Start the background writer thread
     writerThread_ = std::thread(&FileWriter::writerLoop, this);
