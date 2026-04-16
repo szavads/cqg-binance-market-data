@@ -50,6 +50,13 @@ WebSocketClient::WebSocketClient(boost::asio::io_context& io_context)
     });
     wsClient_.set_close_handler([this](ConnectionHandle hdl) { onClose(hdl); });
     wsClient_.set_fail_handler([this](ConnectionHandle hdl) { onError(hdl); });
+
+    // Binance sends a ping frame every 20s; must reply with pong within 1 minute.
+    // Returning true from the ping handler makes websocketpp send pong automatically.
+    // Spec: recommended pong payload is empty, so we ignore the incoming payload.
+    wsClient_.set_ping_handler([this](ConnectionHandle hdl, std::string) {
+        return true;
+    });
 }
 
 WebSocketClient::~WebSocketClient() {
