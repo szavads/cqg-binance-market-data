@@ -61,7 +61,7 @@ Log growth is managed externally via `logrotate` — the service itself does not
 - **nlohmann/json** — single-header JSON parser, clean API, exception-safe.
 - **OpenSSL** — TLS backend for wss:// connections via Boost.Asio SSL context.
 - **GTest** — industry-standard unit testing framework for C++.
-- **spdlog** — reserved for structured logging (currently using std::cout; pluggable without interface changes).
+- **spdlog** — structured logging with timestamp and level. Used across all components (`info`, `warn`, `error`).
 
 ## Project Structure
 

@@ -107,6 +107,11 @@ void FileWriter::writerLoop() {
             std::string output = formatOutput(batch);
             if (!output.empty() && fileStream_.is_open() && fileStream_.good()) {
                 fileStream_ << output << "\n";
+                if (!fileStream_.good()) {
+                    spdlog::error("[FileWriter] Write failed (disk full or I/O error): {}", filename_);
+                }
+            } else if (!fileStream_.good()) {
+                spdlog::error("[FileWriter] Output stream is in error state, data lost: {}", filename_);
             }
         }
         fileStream_.flush(); // Single flush for all batches
