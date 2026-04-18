@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <sstream>
 #include <ctime>
+#include <filesystem>
 
 namespace cqg {
 
@@ -13,6 +14,12 @@ FileWriter::FileWriter(const std::string& filename, int64_t intervalMs)
     , intervalMs_(intervalMs)
     , isRunning_(true) {
     
+    // Create parent directory if it doesn't exist
+    auto parent = std::filesystem::path(filename_).parent_path();
+    if (!parent.empty()) {
+        std::filesystem::create_directories(parent);
+    }
+
     // Open the file once at construction time  held open for the service lifetime
     fileStream_.open(filename_, std::ios::out | std::ios::app);
 

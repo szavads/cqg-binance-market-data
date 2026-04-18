@@ -21,7 +21,7 @@ Binance WebSocket API
     FileWriter              – buffers and serialises stats to disk at hardware-clock intervals
         │
         ▼
-   market_data.log
+   logs/market_data.log
 ```
 
 ### Component responsibilities
@@ -104,7 +104,7 @@ Log growth is managed externally via `logrotate` — the service itself does not
   "trading_pairs": ["btcusdt", "ethusdt"],
   "aggregation_window_ms": 1000,
   "serialization_interval_ms": 5000,
-  "output_file": "market_data.log"
+  "output_file": "logs/market_data.log"
 }
 ```
 
@@ -187,8 +187,7 @@ To persist the output log on the host:
 
 ```bash
 docker run --rm \
-  -v $(pwd)/config/config.json:/app/config/config.json \
-  -v $(pwd)/logs:/app \
+  -v $(pwd)/logs:/app/logs \
   binance_service
 ```
 

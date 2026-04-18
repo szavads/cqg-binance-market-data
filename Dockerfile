@@ -23,12 +23,15 @@ WORKDIR /app
 # Copy project files
 COPY . .
 
+# Create output directory for logs
+RUN mkdir -p /app/logs
+
 # Build
 RUN conan profile detect --force && \
     conan install . --output-folder=build --build=missing -s build_type=Release && \
     cmake -S . -B build \
         -G Ninja \
-        -DCMAKE_TOOLCHAIN_FILE=build/build/generators/conan_toolchain.cmake \
+        -DCMAKE_TOOLCHAIN_FILE=build/build/Release/generators/conan_toolchain.cmake \
         -DCMAKE_BUILD_TYPE=Release \
         -DBUILD_TESTS=OFF && \
     cmake --build build

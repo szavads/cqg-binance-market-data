@@ -58,13 +58,17 @@ TEST(FileWriterTest, ConstructorCreatesFile) {
 }
 
 // Test 2: Constructor throws for invalid path
-TEST(FileWriterTest, ConstructorThrowsOnInvalidPath) {
-    fs::path bad = fs::temp_directory_path() / "no_such_dir" / "fw_test.log";
+TEST(FileWriterTest, ConstructorCreatesParentDirectory) {
+    fs::path dir = fs::temp_directory_path() / "fw_test_newdir";
+    fs::path bad = dir / "fw_test.log";
+    fs::remove_all(dir); // ensure it doesn't exist
 
-    EXPECT_THROW(
-        cqg::FileWriter writer(bad.string(), 1000),
-        std::runtime_error
-    );
+    EXPECT_NO_THROW({
+        cqg::FileWriter writer(bad.string(), 1000);
+    });
+
+    EXPECT_TRUE(fs::exists(dir));
+    fs::remove_all(dir); // cleanup
 }
 
 // Test 3: write() + flush via short interval → data appears in file
