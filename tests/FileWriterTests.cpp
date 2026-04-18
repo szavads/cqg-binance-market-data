@@ -71,6 +71,21 @@ TEST(FileWriterTest, ConstructorCreatesParentDirectory) {
     fs::remove_all(dir); // cleanup
 }
 
+TEST(FileWriterTest, ConstructorThrowsWhenPathBlockedByFile) {
+    // Create a regular file where a directory is expected
+    fs::path blocking = fs::temp_directory_path() / "fw_blocking_file";
+    { std::ofstream f(blocking); f << "x"; }
+
+    fs::path bad = blocking / "fw_test.log"; // blocking is a file, not a dir
+
+    EXPECT_THROW(
+        cqg::FileWriter writer(bad.string(), 1000),
+        std::exception
+    );
+
+    fs::remove(blocking); // cleanup
+}
+
 // Test 3: write() + flush via short interval → data appears in file
 TEST(FileWriterTest, WriteFlushesDataToFile) {
     // Arrange
