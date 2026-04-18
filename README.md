@@ -150,6 +150,13 @@ cmake --build build --config Release
 
 The service handles `SIGINT` and `SIGTERM` for graceful shutdown (flushes pending data before exit).
 
+For quick local testing on Linux — start the service, follow the log, and stop on `Ctrl+C`:
+
+```bash
+chmod +x run.sh
+./run.sh
+```
+
 ## Testing
 
 ```bash

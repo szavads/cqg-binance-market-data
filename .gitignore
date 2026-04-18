@@ -11,6 +11,7 @@ cmake-build-*/
 # Conan
 .conan/
 conan.lock
+CMakeUserPresets.json
 
 # IDE
 .vscode/
